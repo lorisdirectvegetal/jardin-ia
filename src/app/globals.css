@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@theme {
+  --color-foret: #1f4d36;
+  --color-foret-clair: #2f6b4c;
+  --color-sauge: #dfe9df;
+  --color-creme: #f7f5ef;
+  --color-terre: #8a5a3b;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  background: var(--color-creme);
+  color: #1d2a22;
+}
+
+@layer components {
+.bouton {
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-foret px-5 py-3 font-semibold text-white transition hover:bg-foret-clair disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+.bouton-secondaire {
+  @apply inline-flex items-center justify-center gap-2 rounded-full border border-foret px-5 py-3 font-semibold text-foret transition hover:bg-sauge disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+.carte {
+  @apply rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5;
+}
+}
