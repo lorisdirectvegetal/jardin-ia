@@ -12,7 +12,7 @@ import { calculerBudget } from "@/lib/selection";
 import { enregistrerProjet, lireProjet, supprimerProjet } from "@/lib/stockage";
 import type { Projet, Version } from "@/lib/types";
 
-const URL_DEVIS = process.env.NEXT_PUBLIC_URL_DEVIS || "/";
+const URL_DEVIS = process.env.NEXT_PUBLIC_URL_DEVIS || "https://www.direct-vegetal.com/index.php/contact-2";
 
 const SUGGESTIONS: Record<Projet["type"], string[]> = {
   haie: ["Plus fleurie", "Uniquement des persistants", "Moins haute", "Plus de plantes pour les oiseaux"],

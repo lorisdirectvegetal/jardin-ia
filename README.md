@@ -33,7 +33,7 @@ Sans clé, l'application fonctionne en **mode démonstration** : la sélection d
 | --- | --- |
 | `ANTHROPIC_API_KEY` | Analyse de la photo et conception du projet (Claude Opus 5.5) |
 | `REPLICATE_API_TOKEN` | Génération du visuel (FLUX Kontext Pro) |
-| `NEXT_PUBLIC_URL_DEVIS` | Lien du bouton « Demander un devis » |
+| `NEXT_PUBLIC_URL_DEVIS` | Lien du bouton « Demander un devis » (par défaut la fiche contact Direct Végétal) |
 
 ## Modifier le catalogue
 
