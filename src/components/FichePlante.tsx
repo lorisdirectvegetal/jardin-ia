@@ -1,6 +1,7 @@
 "use client";
 
 import { fourchette, metres } from "@/lib/format";
+import type { Taille } from "@/lib/croissance";
 import type { LignePlante, Plante } from "@/lib/types";
 
 const EXPOSITION: Record<string, string> = { soleil: "Soleil", "mi-ombre": "Mi-ombre", ombre: "Ombre" };
@@ -14,9 +15,25 @@ const SOLS: Record<string, string> = {
   acide: "acide",
 };
 
-export function FichePlante({ plante: p, ligne }: { plante: Plante; ligne: LignePlante }) {
+export function FichePlante({
+  plante: p,
+  ligne,
+  indispensable,
+  livraison,
+  surVisuel,
+  momentVisuel,
+}: {
+  plante: Plante;
+  ligne: LignePlante;
+  indispensable?: boolean;
+  livraison: number;
+  surVisuel: Taille;
+  momentVisuel: string;
+}) {
   const caracteristiques: [string, string][] = [
     ["Exposition", p.exposition.map((e) => EXPOSITION[e]).join(", ")],
+    ["Taille à la livraison", `≈ ${metres(livraison)}`],
+    [`Taille ${momentVisuel}`, `≈ ${metres(surVisuel.hauteur)} × ${metres(surVisuel.largeur)}`],
     ["Hauteur adulte", metres(p.hauteur)],
     ["Largeur adulte", metres(p.largeur)],
     ["Espacement", metres(p.espacement)],
@@ -35,7 +52,14 @@ export function FichePlante({ plante: p, ligne }: { plante: Plante; ligne: Ligne
           {ligne.quantite}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block font-semibold">{p.nom}</span>
+          <span className="block font-semibold">
+            {p.nom}
+            {indispensable && (
+              <span className="ml-2 rounded-full bg-foret px-2 py-0.5 align-middle text-xs font-medium text-white">
+                Indispensable
+              </span>
+            )}
+          </span>
           <span className="block text-sm italic text-neutral-500">{p.latin}</span>
           <span className="mt-1 block text-sm text-neutral-700">
             {ligne.role} · {ligne.emplacement}

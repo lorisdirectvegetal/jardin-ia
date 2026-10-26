@@ -27,9 +27,11 @@ function saisonsDeFloraison(periode: string): Set<string> {
 }
 
 const nombre = (v: unknown, defaut: number) => {
+  if (v === undefined || v === null || v === "") return defaut;
   const n = Number(v);
   return Number.isFinite(n) ? n : defaut;
 };
+const renseigne = (v: unknown) => v !== undefined && v !== null && v !== "" && Number.isFinite(Number(v));
 const liste = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : v ? [String(v)] : []);
 
 /** Contraintes communes à tous les projets. Renvoie null si la plante est exclue. */
@@ -91,12 +93,11 @@ function scoreIsole(p: Plante, r: Reponses): number | null {
   if (categorie === "palmier" && !(p.categorie === "palmier" || p.styles.includes("exotique"))) return null;
   if (["arbre", "arbuste", "conifere"].includes(categorie) && p.categorie !== categorie) return null;
   if (p.hauteur > nombre(r.hauteurMax, 6)) return null;
-  const espace = nombre(r.espace, 4);
-  if (p.largeur > espace * 1.2) return null;
+  // Sans dimension saisie, l'IA vérifie l'espace disponible sur la photo.
+  if (renseigne(r.espace) && p.largeur > Number(r.espace) * 1.2) return null;
 
   let score = 0;
-  const distance = nombre(r.distanceMaison, 6);
-  if (p.categorie === "arbre" && distance < p.hauteur / 2) score -= 3;
+  if (renseigne(r.distanceMaison) && p.categorie === "arbre" && Number(r.distanceMaison) < p.hauteur / 2) score -= 3;
   for (const i of liste(r.interets)) {
     if (i === "persistant" ? p.feuillage === "persistant" : p.atouts.includes(i)) score += 2;
   }
@@ -125,6 +126,11 @@ export function preselection(type: TypeProjet, r: Reponses): Candidat[] {
   const limite = { haie: 14, massif: 24, isole: 8 }[type];
   const retenus = resultats.slice(0, limite);
 
+  // Les plantes indispensables du client sont toujours proposées, même hors critères.
+  for (const plante of plantesIndispensables(r)) {
+    if (!retenus.some((c) => c.plante.id === plante.id)) retenus.unshift({ plante, score: 0 });
+  }
+
   // Pour un sujet isolé avec un petit massif au pied, on ajoute des plantes basses d'accompagnement.
   if (type === "isole" && r.pied === "massif") {
     const accompagnement = preselection("massif", { ...r, hauteurMax: "0.6" })
@@ -135,22 +141,47 @@ export function preselection(type: TypeProjet, r: Reponses): Candidat[] {
   return retenus;
 }
 
+export function plantesIndispensables(r: Reponses): Plante[] {
+  return liste(r.indispensables)
+    .map((id) => VEGETAUX.find((p) => p.id === id))
+    .filter((p): p is Plante => Boolean(p));
+}
+
+/** Raisons pour lesquelles une plante risque de mal se plaire dans ce jardin */
+export function alertesPlante(p: Plante, r: Reponses): string[] {
+  const alertes: string[] = [];
+  const climat = nombre(r.climat, -12);
+  if (p.rusticite > climat) alertes.push(`ne supporte que ${p.rusticite} °C alors que vos hivers peuvent descendre vers ${climat} °C`);
+  if (r.exposition && !p.exposition.includes(r.exposition as Plante["exposition"][number])) {
+    alertes.push(`préfère ${p.exposition.join(" ou ")} alors que l'emplacement est en ${r.exposition}`);
+  }
+  const sol = String(r.sol ?? "inconnu");
+  if (sol !== "inconnu" && !p.sols.includes(sol as Plante["sols"][number])) alertes.push(`n'aime pas les sols ${sol}`);
+  return alertes;
+}
+
 /** Repères chiffrés transmis à l'IA pour qu'elle dimensionne les quantités correctement */
 export function reperesQuantites(type: TypeProjet, r: Reponses): string {
+  const estimer = "Le client n'a pas donné toutes les dimensions : estime-les d'après la photo en t'appuyant sur des repères de taille connue (porte 2,0 m, fenêtre 1,2 m, clôture 1,5 à 1,8 m, parpaing 20 cm, marche 17 cm, voiture 4,5 m), indique-les dans dimensionsEstimees et calcule les quantités avec. ";
   if (type === "haie") {
+    if (!renseigne(r.longueur)) return `${estimer}Nombre de plants = longueur ÷ espacement de chaque espèce, multiplié par le nombre de rangs.`;
     const longueur = nombre(r.longueur, 10);
     const rangs = nombre(r.largeur, 1) >= 1.5 && r.composition === "libre" ? 2 : 1;
     return `Haie de ${longueur} m sur ${rangs} rang(s). Nombre de plants = longueur ÷ espacement de chaque espèce, multiplié par le nombre de rangs (en quinconce si 2 rangs).`;
   }
   if (type === "massif") {
+    if (!renseigne(r.longueur) || !renseigne(r.largeur)) {
+      return `${estimer}Chaque plante occupe environ (espacement)² m². Structure : un tiers de la surface en arbustes, le reste en vivaces et graminées par groupes impairs.`;
+    }
     const surface = nombre(r.longueur, 4) * nombre(r.largeur, 1.5);
     return `Massif de ${surface.toFixed(1)} m². Chaque plante occupe environ (espacement)² m². Structure conseillée : environ un tiers de la surface en arbustes, le reste en vivaces et graminées plantées par groupes impairs (3, 5, 7).`;
   }
-  return `Un seul sujet principal (quantité 1).${r.pied === "massif" ? " Au pied, un cercle d'environ 1,5 m de diamètre (1,8 m²) de plantes basses." : ""}`;
+  return `${renseigne(r.espace) ? "" : estimer}Un seul sujet principal (quantité 1).${r.pied === "massif" ? " Au pied, un cercle d'environ 1,5 m de diamètre (1,8 m²) de plantes basses." : ""}`;
 }
 
 /** Conception calculée sans IA : sert de secours si la clé API n'est pas configurée. */
 export function conceptionAutomatique(type: TypeProjet, r: Reponses, decalage = 0): Conception {
+  const indispensables = new Set(liste(r.indispensables));
   const candidats = preselection(type, r);
   const tourner = <T,>(t: T[]) => (t.length ? [...t.slice(decalage % t.length), ...t.slice(0, decalage % t.length)] : t);
   const plantes: LignePlante[] = [];
@@ -159,7 +190,10 @@ export function conceptionAutomatique(type: TypeProjet, r: Reponses, decalage = 
   if (type === "haie") {
     const longueur = nombre(r.longueur, 10);
     const rangs = nombre(r.largeur, 1) >= 1.5 && r.composition === "libre" ? 2 : 1;
-    const especes = tourner(candidats).slice(0, r.composition === "taillee" ? 1 : 4);
+    const especes = [
+      ...candidats.filter((c) => indispensables.has(c.plante.id)),
+      ...tourner(candidats.filter((c) => !indispensables.has(c.plante.id))),
+    ].slice(0, Math.max(indispensables.size, r.composition === "taillee" ? 1 : 4));
     for (const { plante } of especes) {
       const quantite = Math.max(1, Math.ceil((longueur * rangs) / plante.espacement / especes.length));
       plantes.push({ planteId: plante.id, quantite, emplacement: "En alternance sur toute la longueur", role: "Haie" });
@@ -167,7 +201,10 @@ export function conceptionAutomatique(type: TypeProjet, r: Reponses, decalage = 
     materiaux.push({ materiauId: "paillage-ecorce", quantite: Math.ceil(longueur * nombre(r.largeur, 1)) });
   } else if (type === "massif") {
     const surface = nombre(r.longueur, 4) * nombre(r.largeur, 1.5);
-    const tous = tourner(candidats);
+    const tous = [
+      ...candidats.filter((c) => indispensables.has(c.plante.id)),
+      ...tourner(candidats.filter((c) => !indispensables.has(c.plante.id))),
+    ];
     const arbustes = tous.filter((c) => c.plante.categorie === "arbuste").slice(0, 2);
     const basses = tous.filter((c) => c.plante.categorie !== "arbuste").slice(0, 4);
     const ajouter = (groupe: Candidat[], part: number, role: string) => {
@@ -183,7 +220,10 @@ export function conceptionAutomatique(type: TypeProjet, r: Reponses, decalage = 
     if (paillage) materiaux.push({ materiauId: paillage, quantite: Math.ceil(surface) });
     materiaux.push({ materiauId: "terreau-plantation", quantite: Math.max(1, Math.ceil(plantes.length / 2)) });
   } else {
-    const principal = tourner(candidats.filter((c) => c.plante.hauteur > 1.5))[0] ?? candidats[0];
+    const principal =
+      candidats.find((c) => indispensables.has(c.plante.id) && c.plante.usages.includes("isole")) ??
+      tourner(candidats.filter((c) => c.plante.hauteur > 1.5))[0] ??
+      candidats[0];
     if (principal) {
       plantes.push({ planteId: principal.plante.id, quantite: 1, emplacement: "Au centre de l'emplacement", role: "Sujet principal" });
       if (["arbre", "conifere", "palmier"].includes(principal.plante.categorie)) {
@@ -199,6 +239,7 @@ export function conceptionAutomatique(type: TypeProjet, r: Reponses, decalage = 
     materiaux.push({ materiauId: "terreau-plantation", quantite: 2 });
   }
 
+  ajouterIndispensablesManquants(plantes, r);
   const noms = plantes.map((l) => trouverPlante(l.planteId)?.nom).filter(Boolean);
   return {
     titre: type === "haie" ? "Haie sur mesure" : type === "massif" ? "Massif sur mesure" : "Sujet isolé",
@@ -212,6 +253,15 @@ export function conceptionAutomatique(type: TypeProjet, r: Reponses, decalage = 
     ],
     promptImage: "",
   };
+}
+
+/** Garantit que chaque plante indispensable figure dans le projet (au moins un exemplaire). */
+export function ajouterIndispensablesManquants(plantes: LignePlante[], r: Reponses) {
+  for (const p of plantesIndispensables(r)) {
+    if (!plantes.some((l) => l.planteId === p.id)) {
+      plantes.push({ planteId: p.id, quantite: 1, emplacement: "À placer selon vos souhaits", role: "Plante indispensable" });
+    }
+  }
 }
 
 export interface LigneBudget {

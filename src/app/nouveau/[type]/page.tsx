@@ -3,6 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { preparerPhoto } from "@/lib/image";
+import { ChoixIndispensables } from "@/components/ChoixIndispensables";
 import { DEFINITIONS, reponsesParDefaut, type Question } from "@/lib/questionnaires";
 import { enregistrerProjet } from "@/lib/stockage";
 import type { Reponses, TypeProjet, ValeurReponse } from "@/lib/types";
@@ -19,8 +20,10 @@ export default function NouveauProjet() {
 
   if (!definition) return <p>Type de projet inconnu.</p>;
 
-  const total = definition.etapes.length + 1;
+  // Étapes : la photo, les questions du projet, puis les plantes indispensables.
+  const total = definition.etapes.length + 2;
   const estPhoto = etape === 0;
+  const estIndispensables = etape === total - 1;
   const etapeCourante = definition.etapes[etape - 1];
 
   async function choisirPhoto(fichier?: File) {
@@ -97,6 +100,19 @@ export default function NouveauProjet() {
             </button>
           )}
         </section>
+      ) : estIndispensables ? (
+        <section className="carte space-y-4">
+          <h1 className="text-2xl font-bold">Des plantes indispensables ?</h1>
+          <p className="text-neutral-700">
+            Si vous tenez à certaines plantes, ajoutez-les : elles seront obligatoirement intégrées au projet. Sinon,
+            passez directement à la génération.
+          </p>
+          <ChoixIndispensables
+            type={type}
+            reponses={reponses}
+            onChange={(ids) => setReponses((r) => ({ ...r, indispensables: ids }))}
+          />
+        </section>
       ) : (
         <section className="carte space-y-6">
           <h1 className="text-2xl font-bold">{etapeCourante.titre}</h1>
@@ -164,11 +180,17 @@ function ChampQuestion({
             max={q.max}
             step="0.1"
             value={valeur === undefined ? "" : String(valeur)}
+            placeholder={q.facultatif ? "?" : undefined}
             onChange={(e) => onChange(e.target.value === "" ? "" : Number(e.target.value))}
             className="w-32 rounded-xl border border-neutral-300 px-3 py-2 text-lg"
           />
           <span className="text-neutral-600">{q.unite}</span>
         </div>
+        {q.facultatif && (
+          <p className="mt-1 text-sm text-neutral-500">
+            Facultatif : laissez vide si vous ne savez pas, la mesure sera estimée d'après la photo.
+          </p>
+        )}
       </label>
     );
   }

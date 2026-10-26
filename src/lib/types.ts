@@ -76,6 +76,10 @@ export interface Conception {
   conseils: string[];
   /** Consigne en anglais envoyée au modèle d'image */
   promptImage: string;
+  /** Dimensions estimées par l'IA quand le client ne les a pas saisies */
+  dimensionsEstimees?: string;
+  /** Repères d'échelle et hypothèses retenus pour dessiner le visuel */
+  hypotheses?: string;
 }
 
 export interface Version {
@@ -88,6 +92,8 @@ export interface Version {
   /** Image générée (data URL), ou absente si la génération d'image n'est pas configurée */
   image?: string;
   avertissement?: string;
+  /** Résultat du contrôle de réalisme du visuel par l'IA */
+  controle?: string;
 }
 
 export interface Projet {

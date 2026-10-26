@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AvantApres } from "@/components/AvantApres";
 import { FichePlante } from "@/components/FichePlante";
 import { trouverPlante } from "@/data/vegetaux";
+import { hauteurALivraison, LIBELLE_SAISON, libelleHorizon, parametresVisuel, tailleApres } from "@/lib/croissance";
 import { euros, fourchette } from "@/lib/format";
 import { DEFINITIONS, resumerReponses } from "@/lib/questionnaires";
 import { calculerBudget } from "@/lib/selection";
@@ -103,6 +104,8 @@ export default function PageProjet() {
 
   const c = version.conception;
   const budget = calculerBudget(c);
+  const visuel = parametresVisuel(projet.type, projet.reponses);
+  const indispensables = Array.isArray(projet.reponses.indispensables) ? projet.reponses.indispensables : [];
   const recapitulatif = [
     `Projet : ${c.titre}`,
     resumerReponses(projet.type, projet.reponses),
@@ -130,6 +133,18 @@ export default function PageProjet() {
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={projet.photo} alt="Votre photo" className="w-full rounded-2xl" />
+          )}
+          <div className="flex flex-wrap gap-2 text-sm">
+            <span className="rounded-full bg-sauge px-3 py-1 text-foret">
+              Visuel {libelleHorizon(visuel.annees)}, {LIBELLE_SAISON[visuel.saison]}
+            </span>
+            {version.controle && <span className="rounded-full bg-white px-3 py-1 text-neutral-700 ring-1 ring-black/5">{version.controle}</span>}
+          </div>
+          {c.dimensionsEstimees && (
+            <p className="rounded-xl bg-white p-3 text-sm text-neutral-700 ring-1 ring-black/5">
+              <span className="font-semibold">Dimensions estimées d'après la photo :</span> {c.dimensionsEstimees} Vous pouvez les
+              corriger en demandant une modification (ex. : « la haie fait 12 m »).
+            </p>
           )}
           {version.avertissement && (
             <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{version.avertissement}</p>
@@ -225,7 +240,17 @@ export default function PageProjet() {
         <div className="grid gap-3 md:grid-cols-2">
           {c.plantes.map((l) => {
             const p = trouverPlante(l.planteId);
-            return p ? <FichePlante key={l.planteId} plante={p} ligne={l} /> : null;
+            return p ? (
+              <FichePlante
+                key={l.planteId}
+                plante={p}
+                ligne={l}
+                indispensable={indispensables.includes(p.id)}
+                livraison={hauteurALivraison(p)}
+                surVisuel={tailleApres(p, visuel.annees, visuel.limite)}
+                momentVisuel={libelleHorizon(visuel.annees)}
+              />
+            ) : null;
           })}
         </div>
       </section>
@@ -263,6 +288,12 @@ export default function PageProjet() {
           </ul>
           <h3 className="pt-2 font-semibold">Ce que l'IA a observé sur la photo</h3>
           <p className="text-sm text-neutral-700">{c.analysePhoto}</p>
+          {c.hypotheses && (
+            <>
+              <h3 className="pt-2 font-semibold">Échelle retenue pour le visuel</h3>
+              <p className="text-sm text-neutral-700">{c.hypotheses}</p>
+            </>
+          )}
         </div>
       </section>
 

@@ -16,6 +16,8 @@ export interface Question {
   min?: number;
   max?: number;
   defaut?: string | number | string[];
+  /** Le client peut laisser la réponse vide : l'IA l'estime alors d'après la photo */
+  facultatif?: boolean;
 }
 
 export interface Etape {
@@ -110,6 +112,37 @@ const budget: Question = {
   defaut: "800",
 };
 
+const visuel: Etape = {
+  titre: "Le visuel",
+  questions: [
+    {
+      id: "horizon",
+      label: "À quel moment voulez-vous voir le jardin ?",
+      aide: "Les plantes sont dessinées à la taille qu'elles auront réellement à ce moment-là.",
+      type: "choix",
+      options: [
+        { value: "0", label: "Le jour de la plantation", aide: "Jeunes plants tels que livrés" },
+        { value: "3", label: "Dans 3 ans", aide: "Plantation bien installée" },
+        { value: "10", label: "À maturité", aide: "Environ 10 ans" },
+      ],
+      defaut: "3",
+    },
+    {
+      id: "saisonVisuel",
+      label: "En quelle saison ?",
+      aide: "Floraisons et feuillages caducs changent beaucoup d'une saison à l'autre.",
+      type: "choix",
+      options: [
+        { value: "printemps", label: "Printemps" },
+        { value: "ete", label: "Été" },
+        { value: "automne", label: "Automne" },
+        { value: "hiver", label: "Hiver" },
+      ],
+      defaut: "ete",
+    },
+  ],
+};
+
 const conditions: Etape = {
   titre: "Conditions du jardin",
   questions: [climat, exposition, sol],
@@ -138,7 +171,7 @@ export const DEFINITIONS: Record<TypeProjet, DefinitionProjet> = {
             unite: "m",
             min: 1,
             max: 200,
-            defaut: 10,
+            facultatif: true,
           },
           {
             id: "largeur",
@@ -148,7 +181,7 @@ export const DEFINITIONS: Record<TypeProjet, DefinitionProjet> = {
             unite: "m",
             min: 0.4,
             max: 6,
-            defaut: 1,
+            facultatif: true,
           },
           {
             id: "hauteur",
@@ -207,6 +240,7 @@ export const DEFINITIONS: Record<TypeProjet, DefinitionProjet> = {
       },
       conditions,
       contraintes,
+      visuel,
     ],
   },
 
@@ -227,7 +261,7 @@ export const DEFINITIONS: Record<TypeProjet, DefinitionProjet> = {
             unite: "m",
             min: 0.5,
             max: 100,
-            defaut: 4,
+            facultatif: true,
           },
           {
             id: "largeur",
@@ -236,7 +270,7 @@ export const DEFINITIONS: Record<TypeProjet, DefinitionProjet> = {
             unite: "m",
             min: 0.3,
             max: 30,
-            defaut: 1.5,
+            facultatif: true,
           },
           {
             id: "forme",
@@ -322,6 +356,7 @@ export const DEFINITIONS: Record<TypeProjet, DefinitionProjet> = {
       },
       conditions,
       contraintes,
+      visuel,
     ],
   },
 
@@ -356,7 +391,7 @@ export const DEFINITIONS: Record<TypeProjet, DefinitionProjet> = {
             unite: "m",
             min: 1,
             max: 30,
-            defaut: 4,
+            facultatif: true,
           },
           {
             id: "hauteurMax",
@@ -378,7 +413,7 @@ export const DEFINITIONS: Record<TypeProjet, DefinitionProjet> = {
             unite: "m",
             min: 0.5,
             max: 100,
-            defaut: 6,
+            facultatif: true,
           },
         ],
       },
@@ -414,6 +449,7 @@ export const DEFINITIONS: Record<TypeProjet, DefinitionProjet> = {
       },
       conditions,
       contraintes,
+      visuel,
     ],
   },
 };
@@ -434,9 +470,13 @@ export function resumerReponses(type: TypeProjet, r: Reponses): string {
   for (const etape of DEFINITIONS[type].etapes) {
     for (const q of etape.questions) {
       const v = r[q.id];
+      if (v === undefined && q.facultatif) {
+        lignes.push(`- ${q.label} non renseigné, à estimer d'après la photo`);
+        continue;
+      }
       if (v === undefined || (Array.isArray(v) && v.length === 0)) continue;
       let texte: string;
-      if (q.type === "nombre") texte = `${v} ${q.unite ?? ""}`.trim();
+      if (q.type === "nombre") texte = v === "" ? "non renseigné, à estimer d'après la photo" : `${v} ${q.unite ?? ""}`.trim();
       else {
         const valeurs = Array.isArray(v) ? v : [String(v)];
         texte = valeurs

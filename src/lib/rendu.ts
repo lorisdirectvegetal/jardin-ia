@@ -5,7 +5,8 @@ import "server-only";
  * qui modifie la photo d'origine au lieu d'en inventer une nouvelle, ce qui
  * garde la maison, le cadrage et la lumière identiques.
  */
-const MODELE = "black-forest-labs/flux-kontext-pro";
+// La version « max » respecte mieux la photo d'origine et les consignes de taille que la version « pro ».
+const MODELE = "black-forest-labs/flux-kontext-max";
 const API = "https://api.replicate.com/v1";
 
 interface Prediction {

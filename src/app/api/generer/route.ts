@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { concevoirAvecIA, iaDisponible, type DemandeConception } from "@/lib/conception";
+import { concevoirAvecIA, iaDisponible, verifierRendu, type DemandeConception } from "@/lib/conception";
 import { genererImage, renduDisponible } from "@/lib/rendu";
 import { conceptionAutomatique } from "@/lib/selection";
 import type { Conception, Version } from "@/lib/types";
@@ -26,9 +26,23 @@ export async function POST(req: Request) {
   }
 
   let image: string | undefined;
+  let controle: string | undefined;
   if (renduDisponible() && conception.promptImage) {
     try {
       image = await genererImage(corps.photo, conception.promptImage, corps.decalage);
+      // L'IA compare le visuel à la photo et au projet ; en cas d'écart, une seule nouvelle génération corrigée.
+      try {
+        const verification = await verifierRendu(corps.photo, image, conception, corps.type, corps.reponses);
+        if (verification.conforme) {
+          controle = "Visuel contrôlé : échelle, nombre de plantes et saison conformes au projet.";
+        } else if (verification.promptCorrige) {
+          image = await genererImage(corps.photo, verification.promptCorrige, corps.decalage);
+          conception = { ...conception, promptImage: verification.promptCorrige };
+          controle = `Visuel corrigé après contrôle (${verification.ecarts})`;
+        }
+      } catch {
+        controle = "Le contrôle automatique du visuel n'a pas pu être effectué.";
+      }
     } catch (e) {
       avertissements.push(`Le visuel n'a pas pu être généré : ${message(e)}`);
     }
@@ -43,6 +57,7 @@ export async function POST(req: Request) {
     instruction: corps.instruction,
     conception,
     image,
+    controle,
     avertissement: avertissements.join(" ") || undefined,
   };
   return NextResponse.json(version);
